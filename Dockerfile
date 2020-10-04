@@ -10,7 +10,9 @@
   ADD template/input.html template/input.html
   ADD requirements.txt requirements.txt
   ADD app.py app.py
+
   RUN pip3 install -r requirements.txt
+  RUN nltkmodels.py
 
   EXPOSE 5000
   CMD [ "python3", "app.py" ]

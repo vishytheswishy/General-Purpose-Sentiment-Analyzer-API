@@ -1,9 +1,39 @@
-from tokenization import tokenize
 import pandas as pd
 import pickle
 from flask import Flask, request, render_template
 from flask_restful import Api, Resource
 from textblob import TextBlob
+import re
+import emoji
+import nltk
+from nltk.corpus import sentiwordnet as swn
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+lemma = WordNetLemmatizer()
+
+stopwords = ["i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", "yourself", 
+"yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself", "they", "them", 
+"their", "theirs", "themselves", "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", 
+"was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an", "the", 
+"and", "but", "if", "or", "because", "as", "until", "while", "of", "at", "by", "for", "with", "about", "against", 
+"between", "into", "through", "during", "before", "after", "above", "below", "to", "from", "up", "down", "in", "out", 
+"on", "off", "over", "under", "again", "further", "then", "once", "here", "there", "when", "where", "why", "how", 
+"all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", 
+"same", "so", "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now"]
+stopwords.remove('not')
+stopwords.remove('nor')
+stopwords.remove('no')
+# Do this first, that'll do something eval() 
+# to "materialize" the LazyCorpusLoader
+next(swn.all_senti_synsets()) 
+
+
+pattern = '@\S+|https?:\S+|http?:\S|[^A-Za-z]+|com|net'
+urlPattern        = r"((http://)[^ ]*|(https://)[^ ]*|( www\.)[^ ]*)"
+userPattern       = '@[^\s]+'
+alphaPattern      = "[^a-zA-Z0-9]"
+sequencePattern   = r"(.)\1\1+"
+seqReplacePattern = r"\1\1"
 
 import json
 file = open('LR.pkl', 'rb')
@@ -81,6 +111,36 @@ class DetectSentiment(Resource):
         return parsed
 
 api.add_resource(DetectSentiment, "/sentiment/<string:text>")
+
+
+
+def tokenize(texts):
+    # Remove special chars
+    texts = re.sub(r"((http://)[^ ]*|(https://)[^ ]*|( www\.)[^ ]*)", ' URL',texts)
+    texts = emoji.demojize(texts, delimiters=("", ""))
+    texts = re.sub(userPattern,' USER', texts)
+    texts = texts.replace(r"’", "'")
+    texts = re.sub(alphaPattern, " ", texts)
+    # Remove repetitions
+    texts = re.sub(sequencePattern, seqReplacePattern, texts)
+
+    # Transform short negation form
+    texts = texts.replace(r"(can't|cannot)", 'can not')
+    texts = texts.replace(r"n't", ' not')
+
+    # Remove stop words
+
+    tokens = []
+    ntokens = []
+    tokens = list(texts) 
+    for i in tokens:
+        if i not in stopwords:
+            ntokens.append(lemma.lemmatize(i))
+
+    return ' '.join(ntokens)  
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, port = 5000)

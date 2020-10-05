@@ -12,6 +12,3 @@ https://drive.google.com/file/d/1PbPQFgpi1P8wBmp3-LosNhvRYlmy3o3J/view?usp=shari
 download the serialized vectoriser:
 https://drive.google.com/file/d/1E1PPBYYFNHr-wT1BiD2Fs4lu48QDVEDK/view?usp=sharing
 
-or...
-run this notebook and create your own serialized models:
-https://github.com/vishytheswishy/General-Purpose-Sentiment-Analyzer

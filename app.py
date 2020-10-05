@@ -1,32 +1,31 @@
 import pandas as pd
 import pickle
-from flask import Flask, request, render_template
-from flask_restful import Api, Resource
-from textblob import TextBlob
+import json
 import re
 import emoji
 import nltk
+#--------------------------------------------------------------------------------#
+from flask import Flask, request, render_template
+from flask_restful import Api, Resource
+from textblob import TextBlob
+#--------------------------------------------------------------------------------#
 from nltk.corpus import sentiwordnet as swn
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
+#--------------------------------------------------------------------------------#
+from nltk.corpus import stopwords
+stopwords = stopwords.words('english')
+stopwords.remove("not")
+stopwords.remove("no")
+stopwords.remove("nor")
+stopwords.remove("above")
+#--------------------------------------------------------------------------------#
 lemma = WordNetLemmatizer()
 
-stopwords = ["i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", "yourself", 
-"yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself", "they", "them", 
-"their", "theirs", "themselves", "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", 
-"was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an", "the", 
-"and", "but", "if", "or", "because", "as", "until", "while", "of", "at", "by", "for", "with", "about", "against", 
-"between", "into", "through", "during", "before", "after", "above", "below", "to", "from", "up", "down", "in", "out", 
-"on", "off", "over", "under", "again", "further", "then", "once", "here", "there", "when", "where", "why", "how", 
-"all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", 
-"same", "so", "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now"]
-stopwords.remove('not')
-stopwords.remove('nor')
-stopwords.remove('no')
 # Do this first, that'll do something eval() 
 # to "materialize" the LazyCorpusLoader
 next(swn.all_senti_synsets()) 
-
+#--------------------------------------------------------------------------------#
 
 pattern = '@\S+|https?:\S+|http?:\S|[^A-Za-z]+|com|net'
 urlPattern        = r"((http://)[^ ]*|(https://)[^ ]*|( www\.)[^ ]*)"
@@ -35,7 +34,7 @@ alphaPattern      = "[^a-zA-Z0-9]"
 sequencePattern   = r"(.)\1\1+"
 seqReplacePattern = r"\1\1"
 
-import json
+#--------------------------------------------------------------------------------#
 file = open('LR.pkl', 'rb')
 LRmodel = pickle.load(file)
 file.close()
@@ -46,25 +45,41 @@ file.close()
 
 app = Flask(__name__, template_folder='template')
 api = Api(app)
-
+#--------------------------------------------------------------------------------#
+"""
+Helper Functions: 
+def predict: (make predictions on text and return json)
+def tokenize: tokenze and parse texts (remove emoji's and stopwords)
+def determine_sentiment_using_blob: implemented polarity to normalize models (neutral)
+"""
+#--------------------------------------------------------------------------------#
 def predict(vectoriser, model, text):
+
     # Predict the sentiment
     listD = tokenize(str(text).lower())
     listD = [listD]
     textdata = vectoriser.transform(listD)
     sentiment = model.predict(textdata)
     # Make a list of text with sentiment.
+    print(sentiment)
+
     data = []
     for text, pred in zip(text, sentiment):
-        data.append((text,pred))
-        
+        data.append((text,pred,tokenize(text)))
     # Convert the list into a Pandas DataFrame.
-    df = pd.DataFrame(data, columns = ['text','sentiment'])
+    df = pd.DataFrame(data, columns = ['text','sentiment',"tokenizedstr"])
     df = df.replace([0,1,2], ["Negative","Neutral","Positive"])
-    print(df.sentiment)
-    print(determine_sentiment_using_blob(text))
-    return df
 
+    secondop = str(text)
+    second_opinion = determine_sentiment_using_blob(secondop)
+    print('sentiment', df.sentiment[0])
+    print('text', second_opinion)
+    if second_opinion == "Neutral":
+        df.sentiment[0] = "Neutral-" + df.sentiment[0]
+
+
+    return df
+#--------------------------------------------------------------------------------#
 def determine_sentiment_using_blob(textIN):
     positive_feedbacks = []
     negative_feedbacks = []
@@ -76,45 +91,16 @@ def determine_sentiment_using_blob(textIN):
         else:
             negative_feedbacks.append(feedback)
 
+
     if len(positive_feedbacks) > len(negative_feedbacks):
         return "Positive"
     elif len(positive_feedbacks) == len(negative_feedbacks):
         return "Neutral"
     else: 
         return "Negative"
-
-@app.route('/')
-def my_form():
-    return render_template('input.html')
-
-@app.route('/', methods=['POST'])
-def my_form_post():
-    text = []
-    inputT = request.form['text']
-    text.append(inputT.lower())
-    dfN = predict(vectoriser, LRmodel, text)
-    text.clear()
-    result = dfN.to_json(orient="records")
-    parsed = json.loads(result)
-
-    return json.dumps(parsed)  
-
-class DetectSentiment(Resource):
-    def get(self, text):
-        texts = []
-        texts.append(text.lower())
-        dfN = predict(vectoriser, LRmodel, texts)
-        texts.clear()
-        result = dfN.to_json(orient='records')
-        parsed = json.loads(result)
-        print(parsed[0]["sentiment"])  
-        return parsed
-
-api.add_resource(DetectSentiment, "/sentiment/<string:text>")
-
-
-
+#--------------------------------------------------------------------------------#       
 def tokenize(texts):
+
     # Remove special chars
     texts = re.sub(r"((http://)[^ ]*|(https://)[^ ]*|( www\.)[^ ]*)", ' URL',texts)
     texts = emoji.demojize(texts, delimiters=("", ""))
@@ -132,16 +118,47 @@ def tokenize(texts):
 
     tokens = []
     ntokens = []
-    tokens = list(texts) 
+    tokens = word_tokenize(texts) 
     for i in tokens:
         if i not in stopwords:
             ntokens.append(lemma.lemmatize(i))
 
-    return ' '.join(ntokens)  
+    return ' '.join(ntokens) 
+#--------------------------------------------------------------------------------#
+"""
+API: Post Request on Port 500. Detect Sentiment // url:5000/sentiment/<query:string>
+"""
+#--------------------------------------------------------------------------------#
+@app.route('/')
+def my_form():
+    return render_template('input.html')
 
+@app.route('/', methods=['POST'])
+def my_form_post():
+    text = []
+    inputT = request.form['text']
+    text.append(inputT.lower())
+    dfN = predict(vectoriser, LRmodel, text)
+    text.clear()
+    result = dfN.to_json(orient="records")
+    parsed = json.loads(result)
+    
+    return json.dumps(parsed)
 
+# DETECT SENTIMENT API #
+class DetectSentiment(Resource):
+    def get(self, text):
+        texts = []
+        texts.append(text.lower())
+        dfN = predict(vectoriser, LRmodel, texts)
+        texts.clear()
+        result = dfN.to_json(orient='records')
+        parsed = json.loads(result)
+        print(parsed[0]["sentiment"])  
+        return parsed
 
-
+api.add_resource(DetectSentiment, "/sentiment/<string:text>")
+#--------------------------------------------------------------------------------#
 if __name__ == '__main__':
-    app.run(debug=True, port = 5000)
+    app.run(debug=True, port = 5000, host = '0.0.0.0')
 

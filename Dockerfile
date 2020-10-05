@@ -2,17 +2,20 @@
   LABEL maintainer="Vishaal Yalamanchali, vyalaman@uci.edu"
   RUN apt update
   RUN apt install -y python3-dev gcc
+
   ADD nltkmodels.py nltkmodels.py
-  RUN ls
   ADD vectoriser.pkl vectoriser.pkl
   ADD LR.pkl LR.pkl
-  ADD tokenization.py tokenization.py
+  ADD template template
+  ADD static static
   ADD template/input.html template/input.html
+  ADD static/mystyle.css static/mystyle.css
   ADD requirements.txt requirements.txt
   ADD app.py app.py
 
   RUN pip3 install -r requirements.txt
-  RUN nltkmodels.py
+  RUN python3 nltkmodels.py
+  RUN ls
 
   EXPOSE 5000
-  CMD [ "python3", "app.py" ]
+  CMD [ "python3", "app.py" ,"runserver", "-h", "0.0.0.0"]]

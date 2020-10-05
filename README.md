@@ -1,5 +1,5 @@
 # General-Purpose-Sentiment-Analyzer-Machine-Learning-API
-##A general purpose sentiment analyzer that can be deployed in an f1-micro instance, free, forever. Deployed on a kubernetes cluster, using Docker to containerize the app.
+A general purpose sentiment analyzer that can be deployed in an f1-micro instance, free, forever. Deployed on a kubernetes cluster, using Docker to containerize the app.
 [<img src="https://img.shields.io/badge/live-demo-brightgreen?style=for-the-badge&logo=appveyor?">](http://34.94.161.23)
 
 To see the jupyter notebook that produced the models check out this repo: https://github.com/vishytheswishy/General-Purpose-Sentiment-Analyzer
